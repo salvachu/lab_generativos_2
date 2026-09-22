@@ -1,0 +1,11 @@
+{
+  "soft_quantile": 0.995,
+  "tail_quantile": 0.999,
+  "mad_sigma_factor": 1.4826,
+  "severe_mad_multiplier": 6.0,
+  "severe_tail_multiplier": 1.5,
+  "coordinate_margin_fraction": 0.1,
+  "deduplicate_adjacent": true,
+  "smoothing_alpha": 0.0,
+  "require_nonempty_suffix": true
+}

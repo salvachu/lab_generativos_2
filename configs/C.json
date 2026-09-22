@@ -1,0 +1,1 @@
+{"extends": "short.json", "architecture": {"model": "C", "layers": 1, "dropout": 0.0, "teacher_forcing": 1.0}, "kl_schedule": "linear", "prefix_fractions": [0, "one", "two", 0.25, 0.5, 0.75]}

@@ -1,0 +1,6 @@
+{
+  "extends": "E.json",
+  "steps": 640,
+  "max_train_seconds": 240,
+  "eval_every": 80
+}

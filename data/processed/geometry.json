@@ -1,0 +1,182 @@
+{
+  "version": 1,
+  "fit_split": "train",
+  "sample_count": 8187,
+  "source_path": "data\\raw\\train.pkl",
+  "source_sha256": "bc2f939ab6ceb816375acdd536d126115c6cf1646ad339d14f6a533321bf39a7",
+  "representation_version": "absolute-stroke5-v1",
+  "normalization_scale": 256.0,
+  "config": {
+    "soft_quantile": 0.995,
+    "tail_quantile": 0.999,
+    "mad_sigma_factor": 1.4826,
+    "severe_mad_multiplier": 6.0,
+    "severe_tail_multiplier": 1.5,
+    "coordinate_margin_fraction": 0.1,
+    "deduplicate_adjacent": true,
+    "smoothing_alpha": 0.0,
+    "require_nonempty_suffix": true
+  },
+  "coordinates": {
+    "min": [
+      -1.9937844276428223,
+      -1.4159601926803589
+    ],
+    "max": [
+      504.0,
+      504.0
+    ],
+    "central_span": [
+      457.7133184814453,
+      470.5833299446106
+    ],
+    "severe_min": [
+      -52.593162870407106,
+      -51.9575562119484
+    ],
+    "severe_max": [
+      554.5993784427643,
+      554.541596019268
+    ]
+  },
+  "distributions": {
+    "segment_length": {
+      "count": 1102797,
+      "min": 0.8833501347576146,
+      "median": 19.326213321284744,
+      "max": 469.248664408122,
+      "mean": 26.630252492305928,
+      "mad": 8.92657725456786,
+      "robust_sigma": 13.234543437622309,
+      "q01": 2.499996034099369,
+      "q99": 129.7421928927265,
+      "soft_upper": 154.45819161290964,
+      "severe_upper": 314.05317612673866
+    },
+    "stroke_arc_length": {
+      "count": 188702,
+      "min": 0.8833501347576146,
+      "median": 71.95446073246919,
+      "max": 9508.000872888038,
+      "mean": 155.63037253318728,
+      "mad": 54.08854899776625,
+      "robust_sigma": 80.19168274408824,
+      "q01": 2.5,
+      "q99": 1019.7202483545785,
+      "soft_upper": 1107.218096757247,
+      "severe_upper": 2646.12021652085
+    },
+    "turning": {
+      "count": 914095,
+      "min": 0.0011883599595873024,
+      "median": 0.15264277507471252,
+      "max": 1.0,
+      "mean": 0.25944931500083673,
+      "mad": 0.08231025098790284,
+      "robust_sigma": 0.12203317811466476,
+      "q01": 0.025535177255971524,
+      "q99": 0.9725085797713818,
+      "soft_upper": 0.9866231233819518,
+      "severe_upper": 1.7300324966621194
+    },
+    "acceleration": {
+      "count": 914095,
+      "min": 0.015711948277322793,
+      "median": 0.4216586085764121,
+      "max": 1.0,
+      "mean": 0.48129063480828504,
+      "mad": 0.19038821933762093,
+      "robust_sigma": 0.2822695739899568,
+      "q01": 0.08907123488198616,
+      "q99": 0.999229526909496,
+      "soft_upper": 0.9998184785924381,
+      "severe_upper": 2.693612604138288
+    },
+    "stroke_jaggedness": {
+      "count": 188702,
+      "min": 0.0,
+      "median": 0.1452432218071043,
+      "max": 1.0,
+      "mean": 0.20269384432725032,
+      "mad": 0.1452432218071043,
+      "robust_sigma": 0.21533760065121282,
+      "q01": 0.0,
+      "q99": 0.9060119860086863,
+      "soft_upper": 0.95272123982974,
+      "severe_upper": 2.2873371332263788
+    },
+    "stroke_count": {
+      "count": 8187,
+      "min": 8.0,
+      "median": 19.0,
+      "max": 211.0,
+      "mean": 23.0489800903872,
+      "mad": 6.0,
+      "robust_sigma": 8.8956,
+      "q01": 8.0,
+      "q99": 83.14000000000033,
+      "soft_upper": 95.06999999999971,
+      "severe_upper": 195.1050000000023
+    },
+    "point_count": {
+      "count": 8187,
+      "min": 43.0,
+      "median": 137.0,
+      "max": 1148.0,
+      "mean": 157.74996946378405,
+      "mad": 38.0,
+      "robust_sigma": 56.3388,
+      "q01": 59.0,
+      "q99": 458.84000000000196,
+      "soft_upper": 519.1399999999994,
+      "severe_upper": 1011.6608000000006
+    },
+    "points_per_stroke": {
+      "count": 188702,
+      "min": 2.0,
+      "median": 4.0,
+      "max": 406.0,
+      "mean": 6.844119299212515,
+      "mad": 2.0,
+      "robust_sigma": 2.9652,
+      "q01": 2.0,
+      "q99": 29.0,
+      "soft_upper": 37.0,
+      "severe_upper": 115.5
+    },
+    "bbox_diagonal": {
+      "count": 8187,
+      "min": 274.25735605333404,
+      "median": 560.3336370124325,
+      "max": 711.8687686024106,
+      "mean": 553.3340862355062,
+      "mad": 69.8550221384852,
+      "robust_sigma": 103.56705582251814,
+      "q01": 343.7303772498963,
+      "q99": 702.9538620939504,
+      "soft_upper": 705.8820181921436,
+      "severe_upper": 1330.1471974046856
+    },
+    "zero_arc_fraction": {
+      "count": 8187,
+      "min": 0.0,
+      "median": 0.0,
+      "max": 0.0,
+      "mean": 0.0,
+      "mad": 0.0,
+      "robust_sigma": 0.0,
+      "q01": 0.0,
+      "q99": 0.0,
+      "soft_upper": 0.0,
+      "severe_upper": 0.0
+    }
+  },
+  "intra_segment_p995": 154.45819161290964,
+  "policy": {
+    "score": "1 / (1 + maximum dimensionless feature exceedance); invalid => 0",
+    "threshold": "soft=TRAIN q.995; severe=max(TRAIN q.999 + 6*1.4826*MAD, 1.5*q.999)",
+    "coordinates": "soft=observed TRAIN bounds; severe=soft bounds plus 0.10*max(q99-q01, full span)",
+    "prefix": "shape/finiteness only; no statistical penalties or corrections",
+    "inter_stroke_distance": "never included in continuity penalties"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "seed": 2026, "device": "auto", "cpu_threads": 2,
+  "train_size": 1024, "val_size": 96, "batch_size": 16,
+  "steps": 160, "max_train_seconds": 180, "eval_every": 80,
+  "learning_rate": 0.001, "grad_clip": 1.0,
+  "beta": 0.05, "warmup_steps": 100, "free_bits": 0.02,
+  "generation_eval": true, "generation_val_size": 4,
+  "samples_per_prefix": 3, "max_generation_points": 384,
+  "max_generation_strokes": 64, "temperature": 0.6, "eval_seed": 173,
+  "architecture": {"hidden_dim": 96, "latent_dim": 32, "mixtures": 5, "stroke_latent_dim": 16, "scale": 256.0}
+}

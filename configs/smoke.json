@@ -1,0 +1,9 @@
+{
+  "seed": 2026, "device": "auto", "cpu_threads": 2,
+  "train_size": 32, "val_size": 8, "batch_size": 4,
+  "steps": 3, "max_train_seconds": 45, "eval_every": 3,
+  "learning_rate": 0.001, "grad_clip": 1.0,
+  "beta": 0.05, "warmup_steps": 3, "free_bits": 0.02,
+  "generation_eval": false,
+  "architecture": {"hidden_dim": 32, "latent_dim": 8, "mixtures": 3, "stroke_latent_dim": 8, "scale": 256.0, "layers": 1, "dropout": 0.0, "teacher_forcing": 1.0}
+}

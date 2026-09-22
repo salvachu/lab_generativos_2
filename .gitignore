@@ -1,0 +1,27 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.cache/
+
+# The two authorized raw laboratory splits are intentionally versioned.
+data/raw/*
+!data/raw/train.pkl
+!data/raw/val.pkl
+
+# Keep only the small, reproducible geometry calibration artifacts.
+data/processed/*
+!data/processed/geometry.json
+!data/processed/normalization.json
+
+references/
+runs/
+logs/
+tmp/
+
+*.pt
+*.zip
+*.log
+*.tmp
+.DS_Store

@@ -1,0 +1,29 @@
+{
+  "coordinate_mode": "absolute",
+  "model_coordinate_mode": "global_delta",
+  "scale": 256.0,
+  "origin": [
+    0,
+    0
+  ],
+  "fit_split": "train",
+  "fit_sha256": "bc2f939ab6ceb816375acdd536d126115c6cf1646ad339d14f6a533321bf39a7",
+  "fit_rule": "2**ceil(log2(max(abs(train_coordinates))/2))",
+  "canonical_dtype": "float64",
+  "model_dtype": "float32",
+  "resampling": false,
+  "clipping": false,
+  "display_bounds": [
+    -4,
+    508,
+    -4,
+    508
+  ],
+  "nominal_canvas_bounds": [
+    0,
+    504,
+    0,
+    504
+  ],
+  "original_canvas_size": null
+}

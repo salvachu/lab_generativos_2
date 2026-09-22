@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#182c32">
+  <title>Sketch Lab · Laboratorio 2</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Sketch Lab, inicio"><span class="brand-icon" aria-hidden="true">∿</span> SKETCH LAB <span class="brand-divider">/</span><span class="brand-subtitle">Laboratorio 02</span></a>
+    <span class="local-badge"><i></i> LOCAL · VECTORIAL</span>
+  </header>
+  <main>
+    <section class="intro">
+      <div><p class="eyebrow">UN EXPERIMENTO CON VAEs</p><h1>Tu trazo, nuevas posibilidades.</h1><p class="intro-copy">Dibuja el comienzo de una criatura. Explora cómo un modelo continúa tu idea.</p></div>
+      <div class="legend"><span><i class="blue"></i> Tu prefijo</span><span><i class="coral"></i> Continuación</span></div>
+    </section>
+    <div id="no-models" class="notice" hidden><strong>Aún no hay checkpoints disponibles.</strong> Ejecuta el smoke test indicado en README.md y actualiza la lista. Las muestras aparecerán al cargar un modelo entrenado.</div>
+    <section class="workspace" aria-label="Espacio de dibujo y generación">
+      <div class="draw-panel panel">
+        <div class="panel-heading"><div><span class="step">01</span><h2>Comienza con unos trazos</h2></div><span id="stroke-count" class="counter">0 strokes</span></div>
+        <div class="canvas-shell">
+          <canvas id="drawing" width="512" height="512" aria-label="Lienzo de dibujo. Dibuja con el mouse, lápiz o pantalla táctil."></canvas>
+          <div id="canvas-hint" class="canvas-hint"><span class="hint-mark" aria-hidden="true">✳</span><strong>Una antena. Un ala. Una idea.</strong><span>Dibuja aquí para empezar</span></div>
+        </div>
+        <div class="canvas-tools"><div><button id="undo" class="text-button" disabled>↶ Deshacer</button><button id="clear" class="text-button" disabled>Limpiar</button></div><span id="point-count">0 puntos · 512 × 512</span></div>
+        <div class="model-settings">
+          <div class="label-row"><label for="model">Modelo / checkpoint</label><button id="refresh" class="text-button" title="Volver a buscar checkpoints">↻ Actualizar</button></div>
+          <select id="model" aria-describedby="model-help"><option value="">Buscando modelos…</option></select>
+          <p id="model-help" class="field-note">Variantes A–E disponibles en runs/.</p>
+          <div class="controls-grid"><div><label for="temperature">Temperatura <output id="temperature-value" for="temperature">0.60</output></label><input id="temperature" type="range" min="0.05" max="1.5" value="0.6" step="0.05"><p class="field-note">Menor: conservador · Mayor: exploratorio</p></div><div><label for="sample-count">Mostrar hasta</label><select id="sample-count"><option value="3">3 muestras</option><option value="6" selected>6 muestras</option><option value="9">9 muestras</option></select></div></div>
+          <div class="controls-grid budget-grid"><div><label for="generation-mode">Modo de generación</label><select id="generation-mode"><option value="validated">Validación geométrica</option><option value="raw">RAW · inspección sin filtro</option></select></div><div><label for="candidate-budget">Candidatos</label><input id="candidate-budget" type="number" min="1" max="64" step="1" value="20"></div></div>
+          <div class="pipeline-options"><label class="checkbox"><input type="checkbox" id="postprocess" checked> Correcciones leves</label><label class="checkbox"><input type="checkbox" id="rerank" checked> Ranking y diversidad</label></div>
+          <p id="raw-notice" class="raw-notice" hidden>RAW muestra outputs sin filtrar ni corregir. Puede incluir geometría inválida; no representa calidad validada.</p>
+          <div class="actions"><button id="complete" class="button primary" disabled>Completar dibujo <span aria-hidden="true">↗</span></button><button id="random" class="button secondary" disabled>Generación aleatoria</button></div>
+        </div>
+      </div>
+      <div class="results-panel">
+        <div class="results-heading"><div><p class="eyebrow">EL MISMO INICIO, OTRAS IDEAS</p><h2>Explora las posibilidades</h2></div><button id="regenerate" class="button small secondary" disabled>↻ Regenerar</button></div>
+        <div class="result-options"><label class="checkbox"><input type="checkbox" id="stroke-order"> Ver orden de strokes</label><span id="seed-label">Cada variante, una muestra latente</span></div>
+        <div class="export-toolbar"><label for="output-view">Ver <select id="output-view"><option value="processed">Postprocesado</option><option value="raw">Original RAW</option></select></label><div><span id="selection-label">Selecciona un resultado</span><button id="export-svg" class="text-button" disabled>↓ SVG</button><button id="export-json" class="text-button" disabled>↓ JSON</button></div></div>
+        <div id="status" class="status" role="status" aria-live="polite">Dibuja un prefijo o genera una criatura desde cero.</div>
+        <div id="results" class="results-grid" aria-label="Muestras generadas"></div>
+        <div id="result-meta" class="result-meta"></div><details id="validation-details" hidden><summary>Informe de validación y selección</summary><pre id="validation-report"></pre></details>
+        <p class="results-note">El prefijo se conserva punto por punto. La calidad visual depende del entrenamiento; los smoke tests solo comprueban el funcionamiento.</p>
+      </div>
+    </section>
+    <footer><span>SECUENCIAS DE STROKES → ESPACIO LATENTE → NUEVAS CRIATURAS</span><span>Sketch Lab / 2026</span></footer>
+  </main>
+</body>
+</html>
