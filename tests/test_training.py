@@ -3,7 +3,21 @@ import pytest
 import torch
 
 from sketchlab.models import create_model
-from sketchlab.training import validate
+from sketchlab.training import teacher_forcing_at, validate
+
+
+def test_teacher_forcing_schedule_has_warmup_and_bounded_linear_ramp():
+    config = {"architecture": {"teacher_forcing": 1.0},
+              "teacher_forcing_schedule": {"type": "linear_self_feed",
+                                             "warmup_fraction": .2, "final_self_feed": .25}}
+    assert teacher_forcing_at(0, 600, config) == 1.0
+    assert teacher_forcing_at(119, 600, config) == 1.0
+    assert teacher_forcing_at(599, 600, config) == pytest.approx(.75)
+    assert .75 < teacher_forcing_at(360, 600, config) < 1.0
+
+    with pytest.raises(ValueError, match="final_self_feed"):
+        teacher_forcing_at(0, 600, {"teacher_forcing_schedule": {
+            "type": "linear_self_feed", "warmup_fraction": .2, "final_self_feed": .31}})
 
 
 @pytest.mark.parametrize("variant", list("ABCDE"))

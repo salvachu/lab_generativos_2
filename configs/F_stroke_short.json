@@ -1,0 +1,7 @@
+{
+  "extends": "F.json",
+  "training_stage": "stroke_ae",
+  "train_size": 256, "val_size": 32, "batch_size": 8,
+  "steps": 300, "eval_every": 100, "max_train_seconds": 180,
+  "beta": 0.0, "free_bits": 0.0
+}

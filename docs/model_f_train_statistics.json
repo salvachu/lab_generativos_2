@@ -1,0 +1,30 @@
+{
+  "source": "data/raw/train.pkl",
+  "fit_split": "TRAIN",
+  "source_sha256": "bc2f939ab6ceb816375acdd536d126115c6cf1646ad339d14f6a533321bf39a7",
+  "sketches": 8187,
+  "strokes": 188702,
+  "points_per_stroke": {
+    "p50": 4,
+    "p75": 8,
+    "p90": 16,
+    "p95": 21,
+    "p99": 29,
+    "max": 406
+  },
+  "arc_length": {
+    "p50": 71.95446073246919,
+    "p90": 391.3573222517048,
+    "p99": 1019.7202483545785
+  },
+  "single_point_strokes": 0,
+  "stroke_samples_selected": 16,
+  "selection_rule": "TRAIN p90 points/stroke",
+  "eos_counts": {
+    "continue": 188702,
+    "eos": 8187
+  },
+  "eos_frequency_slots": 0.041581804976408024,
+  "eos_weight": 3.0,
+  "weight_rule": "min(3,sqrt(continue/eos)), continue=1"
+}

@@ -14,11 +14,16 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--resume", help="Resume optimizer, RNG, sampler and schedule exactly; write a new output")
     mode.add_argument("--warm-start", help="Load weights with a fresh optimizer, sampler and RNG")
+    parser.add_argument("--stroke-ae", help="Initialize only F stroke encoder/decoder for composition")
     args = parser.parse_args()
     config = load_config(args.config)
+    if args.stroke_ae:
+        if args.resume or args.warm_start:
+            parser.error("--stroke-ae cannot be combined with resume/warm-start")
+        config["stroke_ae_checkpoint"] = args.stroke_ae
     models = [m.strip().upper() for m in args.models.split(",")]
-    if any(m not in "ABCDE" or len(m) != 1 for m in models):
-        parser.error("models must be comma-separated A,B,C,D,E")
+    if any(m not in "ABCDEF" or len(m) != 1 for m in models):
+        parser.error("models must be comma-separated A,B,C,D,E,F")
     if (Path(args.output) / "manifest.json").exists():
         parser.error("Output already contains an experiment. Choose a new --output to preserve evidence.")
     results = run_suite(config, models, args.output, resume=args.resume, warm_start=args.warm_start)

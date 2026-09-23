@@ -1,0 +1,6 @@
+{
+  "extends": "F_smoke.json",
+  "training_stage": "stroke_ae",
+  "steps": 40, "eval_every": 20, "max_train_seconds": 60,
+  "beta": 0.0, "free_bits": 0.0
+}

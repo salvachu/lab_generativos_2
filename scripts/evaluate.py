@@ -18,6 +18,7 @@ def main():
     p.add_argument("--seed", type=int, default=2026)
     p.add_argument("--temperature", type=float, default=.6)
     p.add_argument("--max-points", type=int, default=384)
+    p.add_argument("--cases", help="Persisted selected_validation_cases.json")
     args = p.parse_args()
     if args.count < 1 or args.samples < 2:
         p.error("count>=1 and samples>=2 are required for conditional diversity")
@@ -30,9 +31,14 @@ def main():
     rng = np.random.default_rng(args.seed)
     manifest_path = Path(args.checkpoint).parent.parent / "manifest.json"
     indices = json.loads(manifest_path.read_text(encoding="utf-8"))["val_indices"] if manifest_path.exists() else rng.permutation(len(val)).tolist()
+    if args.cases:
+        fixed = json.loads(Path(args.cases).read_text(encoding="utf-8"))["cases"]
+        indices = [int(c["validation_index"]) for c in fixed]
+        if any(val[i]["id"] != c["id"] for i,c in zip(indices,fixed)):
+            raise ValueError("Persisted VAL cases no longer match dataset IDs")
     selected = [val[int(i)] for i in indices[:args.count]]
     model = load_model(args.checkpoint)
-    evaluate_generation(model, selected, args.output, n_samples=args.samples,
+    evaluate_generation(model, selected, args.output, n_samples=args.samples, seed=args.seed,
                         max_points=args.max_points, temperature=args.temperature,
                         jump_threshold=training_threshold(None))
     metrics = validate(model, selected, 4, beta=.05, free_bits=0.)

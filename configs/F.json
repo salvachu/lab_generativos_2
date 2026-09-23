@@ -1,0 +1,20 @@
+{
+  "extends": "short.json",
+  "training_stage": "composition",
+  "freeze_stroke_ae": true,
+  "stroke_ae_lr_factor": 0.1,
+  "batch_size": 8,
+  "steps": 400,
+  "max_train_seconds": 180,
+  "generation_eval": false,
+  "max_generation_points": 1024,
+  "prefix_fractions": [0, "one", "two", 0.25, 0.5, 0.75],
+  "architecture": {
+    "model": "F", "hidden_dim": 96, "latent_dim": 32,
+    "stroke_embedding_dim": 32, "stroke_samples": 16,
+    "attention_heads": 4, "stroke_encoder_layers": 2, "composition_layers": 2,
+    "mixtures": 5, "layers": 2, "dropout": 0.0, "teacher_forcing": 1.0,
+    "eos_weight": 3.0, "lambda_anchor": 1.0, "lambda_embedding": 1.0,
+    "lambda_eos": 1.0, "lambda_stroke": 1.0
+  }
+}

@@ -8,6 +8,7 @@ from __future__ import annotations
 import importlib
 import math
 import os
+import pickle
 import threading
 from collections import OrderedDict
 from dataclasses import asdict, is_dataclass
@@ -134,6 +135,13 @@ def create_app(runs_dir: str | Path | None = None, backend: Any = None) -> FastA
                 resolved = checkpoint.resolve()
                 if not resolved.is_relative_to(run_root) or not resolved.is_file():
                     continue
+                # F representation pretraining does not yield a generative model.
+                if checkpoint.parent.name == "F":
+                    try:
+                        generation = importlib.import_module("sketchlab.generation")
+                        generation.load_model(resolved)
+                    except (ValueError, RuntimeError, KeyError, EOFError, OSError, pickle.UnpicklingError):
+                        continue
                 info = resolved.stat()
                 model_id = checkpoint.relative_to(run_root).as_posix()
                 available.append({

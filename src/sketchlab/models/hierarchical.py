@@ -25,6 +25,9 @@ class HierarchicalVAE(nn.Module):
                       ("hidden_dim", "latent_dim", "stroke_latent_dim", "mixtures"))
         self.hidden_dim, self.latent_dim, self.stroke_latent_dim = h, z, u
         self.layers = int(config["layers"])
+        class_weights = config.get("state_class_weights", {})
+        self.point_state_weights = self._state_weights(class_weights.get("point", [1.0, 1.0]), "point")
+        self.sketch_state_weights = self._state_weights(class_weights.get("sketch", [1.0, 1.0]), "sketch")
         recurrent = {"num_layers": self.layers, "dropout": float(config["dropout"]) if self.layers > 1 else 0.0}
         self.input_dropout = nn.Dropout(float(config["dropout"]))
         point_hidden = max(1, h // 2)
@@ -47,6 +50,13 @@ class HierarchicalVAE(nn.Module):
         self.point_decoder = nn.GRU(3 + point_condition_dim, h, batch_first=True, **recurrent)
         self.point_coordinate_head = MDNHead(h, k)
         self.point_end_head = nn.Linear(h, 2)
+
+    @staticmethod
+    def _state_weights(values, name: str) -> tuple[float, float]:
+        values = tuple(float(value) for value in values)
+        if len(values) != 2 or any(not math.isfinite(value) or value <= 0 for value in values):
+            raise ValueError(f"{name} state_class_weights must contain two finite positive values")
+        return values
 
     @property
     def device(self) -> torch.device:
@@ -153,7 +163,9 @@ class HierarchicalVAE(nn.Module):
         slot_mask = (positions <= counts[:, None]) & (positions >= prefixes[:, None])
         slot_labels = (positions == counts[:, None]).long()
         slot_logits = self.sketch_end_head(states)
-        slot_ce_values = F.cross_entropy(slot_logits.transpose(1, 2), slot_labels, reduction="none")
+        sketch_weights = slot_logits.new_tensor(self.sketch_state_weights)
+        slot_ce_values = F.cross_entropy(slot_logits.transpose(1, 2), slot_labels,
+                                         weight=sketch_weights, reduction="none")
         ce_sum = torch.where(slot_mask, slot_ce_values, torch.zeros_like(slot_ce_values)).sum()
         correct_sum = ((slot_logits.argmax(-1) == slot_labels) & slot_mask).float().sum()
         event_count = slot_mask.sum().float()
@@ -209,7 +221,9 @@ class HierarchicalVAE(nn.Module):
             coord_count = coord_mask.sum() + len(selected_strokes)
             coordinate_nll = (anchor_nll.sum() + torch.where(coord_mask, point_nll, 0).sum()) / coord_count
             point_labels = target[..., 2].long()
-            point_ce = F.cross_entropy(point_logits.transpose(1, 2), point_labels, reduction="none")
+            point_weights = point_logits.new_tensor(self.point_state_weights)
+            point_ce = F.cross_entropy(point_logits.transpose(1, 2), point_labels,
+                                       weight=point_weights, reduction="none")
             ce_sum = ce_sum + torch.where(point_mask, point_ce, 0).sum()
             correct_sum = correct_sum + ((point_logits.argmax(-1) == point_labels) & point_mask).float().sum()
             event_count = event_count + point_mask.sum()

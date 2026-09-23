@@ -53,6 +53,7 @@ def save_checkpoint(path, model, *, optimizer=None, scheduler=None, step=0, epoc
         "representation_version": REPRESENTATION_VERSION,
         "normalization": {"scale": model.scale, "origin": [0., 0.],
                           "canonical": "absolute", "model": "relative_deltas", "fit_split": "train"},
+        "model_representation": getattr(model, "representation_metadata", None),
         "model_config": dict(model.config), "model_state": model.state_dict(),
         "optimizer_state": optimizer.state_dict() if optimizer else None,
         "scheduler_state": scheduler.state_dict() if scheduler else None,
@@ -63,6 +64,8 @@ def save_checkpoint(path, model, *, optimizer=None, scheduler=None, step=0, epoc
                     "device": str(next(model.parameters()).device), "cuda": torch.version.cuda,
                     "cudnn_enabled": torch.backends.cudnn.enabled},
     }
+    if model.model_name == "F":
+        payload["normalization"]["model"] = "anchor_plus_relative_arclength_curve"
     temporary = path.with_name(path.name + "." + uuid.uuid4().hex + ".tmp")
     try:
         torch.save(payload, temporary)
@@ -89,8 +92,20 @@ def load_checkpoint(path, *, model=None, optimizer=None, scheduler=None,
         from sketchlab.models import create_model
         model = create_model(payload["model_config"]).to(device)
     elif dict(model.config) != payload["model_config"]:
-        raise ValueError("Architecture differs from checkpoint; choose a matching config")
+        current = dict(model.config)
+        saved = dict(payload["model_config"])
+        if mode == "warm_start":
+            # Loss-only settings do not alter parameters or tensor shapes.
+            current.pop("state_class_weights", None)
+            saved.pop("state_class_weights", None)
+        if current != saved:
+            raise ValueError("Architecture differs from checkpoint; choose a matching config")
+    if model.model_name == "F" and payload.get("model_representation") != model.representation_metadata:
+        raise ValueError("F stroke-view metadata differs from checkpoint configuration")
     model.load_state_dict(payload["model_state"], strict=True)
+    if model.model_name == "F" and mode == "inference":
+        model.configure_training(payload.get("config", {}).get("training_stage", "composition"),
+                                 payload.get("config", {}).get("freeze_stroke_ae", True))
     if mode == "resume":
         if optimizer is None or payload.get("optimizer_state") is None:
             raise ValueError("Exact resume requires saved and current optimizer")

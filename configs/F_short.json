@@ -1,0 +1,4 @@
+{
+  "extends": "F.json",
+  "steps": 400, "max_train_seconds": 180, "eval_every": 100
+}

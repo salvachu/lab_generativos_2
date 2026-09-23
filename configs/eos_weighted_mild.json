@@ -1,0 +1,13 @@
+{
+  "extends": "E.json",
+  "steps": 400,
+  "max_train_seconds": 180,
+  "eval_every": 100,
+  "generation_eval": false,
+  "architecture": {
+    "state_class_weights": {
+      "point": [1.0, 1.75],
+      "sketch": [1.0, 3.0]
+    }
+  }
+}

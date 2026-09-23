@@ -1,0 +1,6 @@
+{
+  "extends": "F.json",
+  "train_size": 32, "val_size": 8, "batch_size": 4,
+  "steps": 6, "eval_every": 3, "max_train_seconds": 60,
+  "warmup_steps": 6
+}

@@ -58,9 +58,31 @@ def beta_at(step, config, model_name):
     return kl_schedule(step, config)
 
 
+def teacher_forcing_at(update_index, total_steps, config):
+    """Return the teacher-fed probability for a bounded local training run."""
+    schedule = config.get("teacher_forcing_schedule")
+    if not schedule:
+        return float(config.get("architecture", {}).get("teacher_forcing", 1.0))
+    if schedule.get("type") != "linear_self_feed":
+        raise ValueError("teacher_forcing_schedule.type must be linear_self_feed")
+    warmup_fraction = float(schedule.get("warmup_fraction", .2))
+    final_self_feed = float(schedule.get("final_self_feed", .25))
+    if not 0 <= warmup_fraction < 1 or not 0 <= final_self_feed <= .3:
+        raise ValueError("scheduled sampling requires warmup_fraction in [0,1) and final_self_feed in [0,.3]")
+    progress = update_index / max(1, total_steps - 1)
+    self_feed = 0.0 if progress <= warmup_fraction else final_self_feed * (
+        progress - warmup_fraction) / (1.0 - warmup_fraction)
+    return 1.0 - self_feed
+
+
 @torch.no_grad()
 def validate(model, samples, batch_size, beta, free_bits):
     model.eval()
+    if model.model_name == "F":
+        metrics = model.validate_samples(samples, batch_size, beta, free_bits)
+        if not all(math.isfinite(value) for value in metrics.values()):
+            raise FloatingPointError("Nonfinite F validation")
+        return metrics
     totals, count = {}, 0
     event_totals = {"coordinate": 0., "pen": 0., "stroke": 0.}
     event_sums = {"coordinate_nll": 0., "pen_ce": 0., "pen_accuracy": 0.,
@@ -164,7 +186,26 @@ def run_experiment(config, model_name, train, val, run_dir, *, resume=None, warm
     native_rnn = (torch.device(device).type == "cuda" and model_config.get("layers", 1) > 1
                   and model_config.get("dropout", 0.) > 0)
     torch.backends.cudnn.enabled = not native_rnn
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.get("learning_rate", .001))
+    if model_name == "F":
+        model.configure_training(config.get("training_stage", "composition"), config.get("freeze_stroke_ae", True))
+        ae_path = config.get("stroke_ae_checkpoint")
+        if ae_path and not (resume or warm_start):
+            ae, _ = load_checkpoint(ae_path, device=device)
+            if ae.model_name != "F" or ae.representation_metadata != model.representation_metadata:
+                raise ValueError("Stroke AE representation does not match F config")
+            model.stroke_encoder.load_state_dict(ae.stroke_encoder.state_dict(), strict=True)
+            model.stroke_decoder.load_state_dict(ae.stroke_decoder.state_dict(), strict=True)
+        local, composition = [], []
+        for name, parameter in model.named_parameters():
+            if parameter.requires_grad:
+                (local if name.startswith(("stroke_encoder.", "stroke_decoder.")) else composition).append(parameter)
+        groups = []
+        if composition: groups.append({"params":composition})
+        if local: groups.append({"params":local, "lr":config.get("learning_rate", .001)*(
+            1. if model.training_stage == "stroke_ae" else config.get("stroke_ae_lr_factor", .1))})
+        optimizer = torch.optim.Adam(groups, lr=config.get("learning_rate", .001))
+    else:
+        optimizer = torch.optim.Adam(model.parameters(), lr=config.get("learning_rate", .001))
     start_step = 0
     saved_state = None
     if resume:
@@ -174,6 +215,8 @@ def run_experiment(config, model_name, train, val, run_dir, *, resume=None, warm
         # Budgets/evaluation may change; training distribution and objective may not.
         keys = ["seed", "batch_size", "learning_rate", "grad_clip", "beta", "beta_start", "kl_schedule",
                 "warmup_steps", "cycle_steps", "free_bits", "prefix_fractions", "source_hashes"]
+        if model_name == "F":
+            keys += ["training_stage", "freeze_stroke_ae", "stroke_ae_lr_factor"]
         for key in keys:
             if saved["config"].get(key) != config.get(key):
                 raise ValueError(f"Exact resume changed {key}; use warm_start")
@@ -229,7 +272,9 @@ def run_experiment(config, model_name, train, val, run_dir, *, resume=None, warm
             if device == "cuda": torch.cuda.synchronize()
             tick = time.perf_counter()
             optimizer.zero_grad(set_to_none=True)
-            result = model.batch_loss(sketches, contexts, beta=beta, free_bits=free_bits)
+            teacher_forcing = teacher_forcing_at(step - start_step, total_steps, config)
+            result = model.batch_loss(sketches, contexts, beta=beta, free_bits=free_bits,
+                                      teacher_forcing=teacher_forcing)
             if not torch.isfinite(result["loss"]):
                 raise FloatingPointError(f"Nonfinite loss at step {step}")
             result["loss"].backward()
@@ -240,7 +285,8 @@ def run_experiment(config, model_name, train, val, run_dir, *, resume=None, warm
             if device == "cuda": torch.cuda.synchronize()
             elapsed_train += time.perf_counter() - tick
             seen += len(sketches)
-            record = {"step": step + 1, "beta": beta, "train_seconds": elapsed_train,
+            record = {"step": step + 1, "beta": beta, "teacher_forcing": teacher_forcing,
+                      "self_feed_probability": 1.0 - teacher_forcing, "train_seconds": elapsed_train,
                       "grad_norm": float(grad_norm.detach().cpu()), **scalar_metrics(result)}
             history.append(record)
             stream.write(json.dumps(record) + "\n")
@@ -272,7 +318,7 @@ def run_experiment(config, model_name, train, val, run_dir, *, resume=None, warm
     torch.set_num_threads(1)
     generation = None
     tick = time.perf_counter()
-    if config.get("generation_eval", True):
+    if config.get("generation_eval", True) and not (model_name == "F" and model.training_stage == "stroke_ae"):
         generation = evaluate_generation(
             model, val[:config.get("generation_val_size", 4)], run_dir / "samples",
             seed=config.get("eval_seed", 173), n_samples=config.get("samples_per_prefix", 3),
@@ -284,6 +330,8 @@ def run_experiment(config, model_name, train, val, run_dir, *, resume=None, warm
     generation_seconds = time.perf_counter() - tick
     summary = {
         "model": model_name, "params": params, "latent_dim": model_config.get("latent_dim", 32),
+        "training_stage": config.get("training_stage"),
+        "model_representation": getattr(model, "representation_metadata", None),
         "strategy": "fixed beta=1" if model_name == "A" else f"beta={config.get('beta', .05)}, warmup={config.get('warmup_steps', 100)}, free_bits={free_bits}",
         "steps": len(history), "best_step": best_step, "train_examples_seen": seen,
         "train_loss": float(np.mean([h["loss"] for h in history[-min(20,len(history)):]])),

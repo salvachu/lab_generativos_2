@@ -84,6 +84,18 @@ def test_conditional_loss_excludes_prefix_and_eos_has_no_coordinates(name):
     assert complete_prefix["coordinate_nll"].item() == 0
 
 
+def test_hierarchical_state_class_weights_change_only_state_objective():
+    control = tiny("E", state_class_weights={"point": [1, 1], "sketch": [1, 1]}).eval()
+    weighted = tiny("E", state_class_weights={"point": [1, 2.4], "sketch": [1, 4.8]}).eval()
+    control_result = control.batch_loss(examples(), [1, 1], beta=0.1, deterministic=True)
+    weighted_result = weighted.batch_loss(examples(), [1, 1], beta=0.1, deterministic=True)
+    torch.testing.assert_close(control_result["coordinate_nll"], weighted_result["coordinate_nll"])
+    assert weighted_result["pen_ce"] > control_result["pen_ce"]
+
+    with pytest.raises(ValueError, match="finite positive"):
+        tiny("E", state_class_weights={"point": [1, 0], "sketch": [1, 1]})
+
+
 @pytest.mark.parametrize("name", ["A", "B", "D"])
 def test_unconditional_training_ignores_completion_prefix_count(name):
     model = tiny(name).eval()

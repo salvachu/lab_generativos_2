@@ -21,7 +21,11 @@ def load_model(checkpoint_path: str | Path, device: str = "cpu") -> nn.Module:
     checkpoint = torch.load(Path(checkpoint_path), map_location=device, weights_only=True)
     if not isinstance(checkpoint, dict) or not {"model_config", "model_state"} <= checkpoint.keys():
         raise ValueError("Checkpoint must contain model_config and model_state")
+    if checkpoint["model_config"].get("model") == "F" and checkpoint.get("config", {}).get("training_stage") == "stroke_ae":
+        raise ValueError("F_STROKE_AE is a representation checkpoint; use a composition checkpoint for generation")
     model = create_model(checkpoint["model_config"]).to(device)
+    if model.model_name == "F" and checkpoint.get("model_representation") != model.representation_metadata:
+        raise ValueError("F stroke-view metadata differs from checkpoint configuration")
     model.load_state_dict(checkpoint["model_state"], strict=True)
     model.eval()
     return model
@@ -227,7 +231,10 @@ def sample(handle: nn.Module, prefix: list[np.ndarray] | None = None, seed: int 
             "stroke_latent_seed": local_latent_seed if handle.model_name in "DE" else None,
             "prefix_points": sum(len(s) for s in prefix), "max_points": max_points,
             "max_strokes": max_strokes, "explicit_z": z is not None}
-    if handle.model_name in "ABC":
+    if handle.model_name == "F":
+        continuation, info = _compositional_sample(handle, prefix, latent, context, decoder_rng,
+                                                   temperature, max_points, max_strokes, info)
+    elif handle.model_name in "ABC":
         continuation, info = _sequence_sample(handle, prefix, latent, context, decoder_rng,
                                               temperature, max_points, max_strokes, info)
     else:
@@ -235,6 +242,46 @@ def sample(handle: nn.Module, prefix: list[np.ndarray] | None = None, seed: int 
                                                   decoder_rng, temperature, max_points, max_strokes, info)
     result = prefix + continuation
     return (result, info) if return_info else result
+
+
+def _compositional_sample(model, prefix, z, context, rng, temperature, max_points, max_strokes, info):
+    view = model.view([prefix])
+    embeddings = model.encode_view(view)[:, :len(prefix)]
+    tokens = model.stroke_tokens(embeddings, view["anchors"][:, :len(prefix)])
+    continuation = []
+    points_used = 0
+    info.update(stroke_samples=model.stroke_samples, point_autoregression=False)
+    for _ in range(max_strokes):
+        state = model.next_state(tokens, z, context)
+        try:
+            if _category(model.sketch_end_head(state)[0], temperature, rng) == 1:
+                return _finish(info, continuation, "eos")
+            # Do not silently truncate a stroke or call a cap learned EOS.
+            if points_used + model.stroke_samples > max_points:
+                return _finish(info, continuation, "max_points")
+            anchor = _point(model.anchor_head(state)[0], temperature, rng)
+            anchor_tensor = torch.as_tensor(anchor, device=model.device, dtype=torch.float32)[None]
+            mu, logvar = model.embedding_distribution(state, anchor_tensor)
+            if temperature == 0:
+                embedding = mu
+            else:
+                noise = torch.randn(mu.shape, generator=rng).to(model.device)
+                embedding = mu + noise*(.5*logvar).exp()*temperature**.5
+            if not torch.isfinite(embedding).all():
+                raise FloatingPointError("nonfinite stroke embedding")
+            t = torch.linspace(0., 1., model.stroke_samples, device=model.device)
+            relative = model.stroke_decoder(embedding, t)[0].cpu().numpy().astype(np.float64)
+            stroke = (relative + anchor)*model.scale
+            if not np.isfinite(stroke).all():
+                raise FloatingPointError("nonfinite stroke coordinates")
+            continuation.append(stroke); points_used += len(stroke)
+            # Feedback is the sampled stroke code and absolute anchor. There is
+            # no previous-point input or cumulative coordinate integration.
+            token = model.stroke_tokens(embedding, anchor_tensor).unsqueeze(1)
+            tokens = torch.cat([tokens, token], 1)
+        except FloatingPointError:
+            return _finish(info, continuation, "nonfinite_prediction")
+    return _finish(info, continuation, "max_strokes")
 
 
 def complete_sketch(handle: nn.Module, prefix: list[np.ndarray], n_samples: int = 4,
