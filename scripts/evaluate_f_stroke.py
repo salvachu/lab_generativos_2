@@ -88,8 +88,6 @@ def render_visual_review(rows, path):
 @torch.inference_mode()
 def evaluate(model, selected, output, checkpoint, checkpoint_payload):
     output = Path(output); output.mkdir(parents=True, exist_ok=True)
-    if (output / "metrics.json").exists():
-        raise FileExistsError(output / "metrics.json")
     strokes = [item["stroke"] for item in selected]
     model.eval(); view = model.view([strokes]); embeddings = model.encode_view(view)[0]
     prediction_normalized = model.stroke_decoder(embeddings, view["t"]).cpu().numpy()
@@ -132,7 +130,7 @@ def evaluate(model, selected, output, checkpoint, checkpoint_payload):
         "total_time_seconds": train_summary["total_time_seconds"],
         "peak_vram_mib": train_summary["peak_vram_mib"], "device": train_summary["device"],
         "status": train_summary["status"], "finite_metrics": bool(finite),
-        "nan_or_instability_observed": not finite or train_summary["status"] != "complete",
+        "nan_or_instability_observed": not finite or train_summary["status"] not in {"complete", "completed"},
     }
     (output.parent / "STAGE1_SUMMARY.json").write_text(json.dumps(stage_summary, indent=2), encoding="utf-8")
     return stage_summary
