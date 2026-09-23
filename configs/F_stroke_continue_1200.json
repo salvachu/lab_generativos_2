@@ -1,0 +1,6 @@
+{
+  "extends": "F_stroke_short.json",
+  "steps": 1200,
+  "eval_every": 100,
+  "max_train_seconds": 180
+}
