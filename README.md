@@ -38,9 +38,7 @@ Los detalles de representación, losses y límites de comparación están en [do
 
 ## Estado actual
 
-El repositorio incluye representación reversible, pipeline seguro de datos, modelos A/B/C/D/E, training, evaluación, checkpoints con resume exacto, random generation, sketch completion, preservación exacta del prefix, validación geométrica, postprocesado conservador, reranking por diversidad, interfaz local y tests automatizados.
-
-La verificación de publicación ejecuta **142 tests**. Los checkpoints y resultados experimentales se excluyen del repositorio; pueden reproducirse con los comandos siguientes y se guardan bajo `runs/`, que Git ignora.
+El repositorio incluye representación reversible, pipeline seguro de datos, modelos A/B/C/D/E y la demo final H9/H13/H20. Los tres checkpoints necesarios para la demo están en `artifacts/models/`. Los demás checkpoints y resultados experimentales permanecen en `runs/`, que Git ignora.
 
 ## Hallazgos actuales
 
@@ -54,39 +52,49 @@ Esto **no demuestra exposure bias**. Las hipótesis abiertas incluyen calibraci�
 
 ![Comparación C frente a E en Round 2](docs/assets/round2_C_vs_E.png)
 
-## Interfaz
+## Demo
 
-En la interfaz, **azul** representa el prefix proporcionado y **naranja** la continuación generada. Primero entrena un modelo o coloca un checkpoint compatible dentro de `runs/`; los checkpoints no se publican en Git.
+La demo final funciona sin entrenar. **Azul** es el prefijo dibujado y **naranja** la continuación. Necesita Python 3.11 o 3.12. Los scripts se sitúan automáticamente en la raíz del repositorio.
 
-```powershell
-.\scripts\run_demo.ps1
-```
+### Windows
 
-Después abre [http://127.0.0.1:8000](http://127.0.0.1:8000). El comando equivalente es:
-
-```powershell
-.\.venv\Scripts\python.exe -m uvicorn app.server:app --host 127.0.0.1 --port 8000
-```
-
-## Setup en Windows
-
-Requiere Python 3.11 o 3.12. Para el entorno CUDA 12.6 usado en el laboratorio:
+En PowerShell, con Git y Python instalados:
 
 ```powershell
 git clone https://github.com/salvachu/lab_generativos_2.git
 cd lab_generativos_2
-.\scripts\setup.ps1 -Python python
+powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\run_demo.ps1
 ```
 
-Para reproducir las versiones bloqueadas manualmente:
+### Ubuntu
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt
-.\.venv\Scripts\python.exe -m pip install -e . --no-deps
+En Ubuntu 24.04 o posterior:
+
+```bash
+sudo apt update
+sudo apt install -y git python3 python3-venv
+git clone https://github.com/salvachu/lab_generativos_2.git
+cd lab_generativos_2
+bash scripts/setup.sh
+bash scripts/run_demo.sh
 ```
 
-`requirements-lock.txt` fija PyTorch CUDA 12.6. En una máquina sin NVIDIA instala primero la distribución de PyTorch adecuada y después `pip install -e ".[dev]"`. Consulta [docs/QUICK_START.md](docs/QUICK_START.md) para el flujo corto.
+### URL
+
+Abre [http://127.0.0.1:8000/demo](http://127.0.0.1:8000/demo). La vista original sigue en [http://127.0.0.1:8000/](http://127.0.0.1:8000/).
+
+### Models
+
+| Modelo | Uso | Checkpoint |
+|---|---|---|
+| H20 — Recommended | Modelo final por defecto | `artifacts/models/H20/best.pt` |
+| H13 — Structural | Comparación estructural | `artifacts/models/H13/best.pt` |
+| H9 — Experimental | Comparación histórica | `artifacts/models/H9/best.pt` |
+
+Cada checkpoint conserva su configuración de inferencia dentro del archivo; no hay que proporcionar una config externa. H13 y H20 usan además `features.npz` y `FEATURE_MANIFEST.json` de su propia carpeta en `artifacts/models/`, con solo los dos arrays necesarios para inferencia. Estos bancos verifican su procedencia contra `data/raw/train.pkl`, incluido en el repositorio. No se descargan modelos al arrancar.
+
+La demo muestra **CUDA** cuando la instalación de PyTorch detecta una GPU compatible; en otro caso usa **CPU**. CUDA no es requisito. Para instalar una versión de PyTorch con CUDA, consulta la [guía oficial de instalación](https://docs.pytorch.org/get-started/locally/); en Windows, `setup.ps1 -Cuda` instala la variante CUDA 12.6 usada en este laboratorio si el equipo es compatible. `requirements-lock.txt` conserva el entorno CUDA histórico y no es necesario para ejecutar la demo.
 
 ## Tests
 
@@ -150,6 +158,8 @@ Generación aleatoria sin prefix:
 
 ## Documentación
 
+- [Investigación y decisión arquitectónica G](docs/ARCHITECTURE_DECISION.md)
+- [Short de G: resultados y decisión visual](docs/G_SHORT_FINDINGS.md)
 - [Inicio rápido](docs/QUICK_START.md)
 - [Hallazgos experimentales](docs/EXPERIMENTAL_FINDINGS.md)
 - [Dataset y representación](docs/dataset.md)

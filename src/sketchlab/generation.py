@@ -24,8 +24,8 @@ def load_model(checkpoint_path: str | Path, device: str = "cpu") -> nn.Module:
     if checkpoint["model_config"].get("model") == "F" and checkpoint.get("config", {}).get("training_stage") == "stroke_ae":
         raise ValueError("F_STROKE_AE is a representation checkpoint; use a composition checkpoint for generation")
     model = create_model(checkpoint["model_config"]).to(device)
-    if model.model_name == "F" and checkpoint.get("model_representation") != model.representation_metadata:
-        raise ValueError("F stroke-view metadata differs from checkpoint configuration")
+    if model.model_name in "FGH" and checkpoint.get("model_representation") != model.representation_metadata:
+        raise ValueError("F/G stroke-view metadata differs from checkpoint configuration")
     model.load_state_dict(checkpoint["model_state"], strict=True)
     model.eval()
     return model
@@ -94,7 +94,7 @@ def _point(raw: Tensor, temperature: float, rng: torch.Generator) -> np.ndarray:
 def _finish(info: dict[str, Any], continuation: list[np.ndarray], termination: str,
             *, partial_stroke: bool = False) -> tuple[list[np.ndarray], dict[str, Any]]:
     info.update(termination=termination, ended_by_eos=termination == "eos",
-                capped=termination in {"max_points", "max_strokes"},
+                capped=termination in {"max_points", "max_strokes", "max_groups"},
                 partial_stroke=partial_stroke, generated_points=sum(len(s) for s in continuation),
                 generated_strokes=len(continuation),
                 finite=all(np.isfinite(s).all() for s in continuation))
@@ -231,7 +231,16 @@ def sample(handle: nn.Module, prefix: list[np.ndarray] | None = None, seed: int 
             "stroke_latent_seed": local_latent_seed if handle.model_name in "DE" else None,
             "prefix_points": sum(len(s) for s in prefix), "max_points": max_points,
             "max_strokes": max_strokes, "explicit_z": z is not None}
-    if handle.model_name == "F":
+    if handle.model_name == "H":
+        continuation,reason,groups=handle.rollout(context,latent,decoder_rng,temperature,max_points,max_strokes)
+        info.update(generated_groups=groups,stroke_samples=handle.stroke_samples,
+                    point_autoregression=False,stroke_autoregression=True,
+                    termination_mechanism='autoregressive_group_eos_and_group_count')
+        continuation,info=_finish(info,continuation,reason)
+    elif handle.model_name == "G":
+        continuation, info = _planned_sample(handle, latent, context, decoder_rng,
+                                             temperature, max_points, max_strokes, info)
+    elif handle.model_name == "F":
         continuation, info = _compositional_sample(handle, prefix, latent, context, decoder_rng,
                                                    temperature, max_points, max_strokes, info)
     elif handle.model_name in "ABC":
@@ -242,6 +251,47 @@ def sample(handle: nn.Module, prefix: list[np.ndarray] | None = None, seed: int 
                                                   decoder_rng, temperature, max_points, max_strokes, info)
     result = prefix + continuation
     return (result, info) if return_info else result
+
+
+def _planned_sample(model, z, context, rng, temperature, max_points, max_strokes, info):
+    """A learned categorical length ends the plan; resource caps remain distinct."""
+    if model.config.get('group_anchor_planner') and model.config.get('group_box_mixtures',1)>1:
+        group=model.make_group_plan(context,z)
+        indices=torch.as_tensor([_category(logits,temperature,rng)
+                                 for logits in group['box_logits'][0]],device=model.device)
+        group['boxes']=group['box_components'][0,torch.arange(len(indices),device=model.device),indices][None]
+        info['sampled_group_box_components']=indices.cpu().tolist()
+        output=model.decode_plan(context,z,group_plan=group)
+    else:
+        output = model.decode_plan(context, z)
+    continuation = []
+    try:
+        planned = _category(output['count_logits'][0], temperature, rng)
+        count = min(planned, max_strokes, max_points // model.stroke_samples)
+        info.update(planned_strokes=planned, stroke_samples=model.stroke_samples,
+                    point_autoregression=False, stroke_autoregression=False,
+                    termination_mechanism='learned_categorical_suffix_length')
+        if count:
+            t = torch.linspace(0., 1., model.stroke_samples, device=model.device)
+            if model.config.get('code_mixtures',1) > 1:
+                components=torch.as_tensor([_category(output['code_logits'][0,j],temperature,rng)
+                                            for j in range(count)],device=model.device)
+                embeddings=output['code_means'][0,torch.arange(count,device=model.device),components]
+                info['sampled_code_components']=components.cpu().tolist()
+            else:
+                embeddings=output['codes'][0,:count]
+            curves = model.stroke_decoder(embeddings, t)
+            if model.config.get('extent_prediction',False):
+                curves=model.scale_curves(curves,output['extent_log'][0,:count])
+            absolute = (curves + output['anchors'][0,:count,None]) * model.scale
+            if not torch.isfinite(absolute).all():
+                raise FloatingPointError('nonfinite planned coordinates')
+            continuation = [s for s in absolute.cpu().numpy().astype(np.float64)]
+        reason = ('eos' if count == planned else 'max_points'
+                  if max_points // model.stroke_samples <= max_strokes else 'max_strokes')
+        return _finish(info, continuation, reason)
+    except FloatingPointError:
+        return _finish(info, continuation, 'nonfinite_prediction')
 
 
 def _compositional_sample(model, prefix, z, context, rng, temperature, max_points, max_strokes, info):

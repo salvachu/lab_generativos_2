@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sketch Lab · Demo</title>
+  <link rel="stylesheet" href="/static/demo.css">
+  <script src="/static/demo.js?v=20260926-portable" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/demo"><span class="brand-icon">∿</span> SKETCH LAB <span class="divider">/</span><span class="subtitle">Laboratorio 02</span></a>
+    <span id="device-badge" class="badge">DEMO · VECTORIAL</span>
+  </header>
+  <main>
+    <div class="intro"><div><p class="eyebrow">PRESENTACIÓN</p><h1>Tu trazo, nuevas posibilidades.</h1></div><div class="legend"><span><i class="blue"></i> Tu prefijo</span><span><i class="orange"></i> Continuación</span></div></div>
+    <div class="layout">
+      <section class="left" aria-label="Dibujo y controles">
+        <div class="panel-title"><h2>Dibuja un comienzo</h2><span id="stroke-count">0 trazos</span></div>
+        <div class="canvas-shell"><canvas id="drawing" width="512" height="512" aria-label="Canvas vectorial de entrada"></canvas><p id="canvas-hint">Dibuja aquí con mouse o lápiz</p></div>
+        <div class="canvas-actions"><button id="undo" type="button">↶ Deshacer</button><button id="clear" type="button">Limpiar</button></div>
+        <div class="primary-controls">
+          <label for="model">Modelo</label>
+          <select id="model"><option value="H20">H20 — Recomendado</option><option value="H13">H13 — Estructural</option><option value="H9">H9 — Experimental</option></select>
+          <label for="samples">Muestras</label><select id="samples"><option value="3" selected>3</option><option value="6">6</option><option value="9">9</option></select>
+          <button id="complete" class="primary" type="button" disabled>COMPLETAR DIBUJO</button>
+          <button id="random" class="secondary" type="button">GENERAR ALEATORIO</button>
+        </div>
+        <details id="more"><summary>Más opciones</summary><div class="extra">
+          <label for="temperature">Temperatura <output id="temperature-label">0.60</output></label><input id="temperature" type="range" min="0.05" max="1.5" step="0.05" value="0.6">
+          <label for="candidates">Candidatos internos</label><input id="candidates" type="number" min="1" max="64" value="20">
+          <label class="check"><input id="validate" type="checkbox" checked> Validación geométrica</label>
+          <label class="check"><input id="postprocess" type="checkbox" checked> Correcciones leves</label>
+          <label class="check"><input id="rerank" type="checkbox" checked> Ranking y diversidad</label>
+        </div></details>
+      </section>
+      <section class="right" aria-label="Resultados">
+        <div class="results-toolbar"><div><label class="check"><input id="show-order" type="checkbox"> Mostrar orden de trazos</label><label class="check"><input id="benchmark" type="checkbox"> Benchmark</label></div><button id="regenerate" type="button" disabled>↻ Regenerar</button></div>
+        <div class="result-heading"><div><p class="eyebrow">EL MISMO INICIO, OTRAS IDEAS</p><h2 id="result-title">Resultados — H20</h2></div><span id="result-count"></span></div>
+        <p id="status" class="status" role="status" aria-live="polite">Dibuja un trazo para completarlo o genera desde cero.</p>
+        <div id="results" class="results-grid"></div>
+        <p id="method-note" class="method-note" hidden>Benchmark: mismo prefijo y seeds numéricos comparables. H9, H13 y H20 tienen espacios latentes distintos; un seed igual no representa el mismo vector z.</p>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

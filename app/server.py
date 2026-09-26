@@ -96,9 +96,16 @@ def create_app(runs_dir: str | Path | None = None, backend: Any = None) -> FastA
     """Create an app with injectable inference backend for small HTTP tests."""
     application = FastAPI(title="Sketch Lab · Laboratorio 2")
     run_root = Path(runs_dir or ROOT / "runs").resolve()
+    artifact_root = (ROOT / "artifacts/models" if runs_dir is None else run_root / "artifacts/models").resolve()
     inference_lock = threading.Lock()
-    model_cache: OrderedDict[tuple[str, int, int], Any] = OrderedDict()
+    model_cache: OrderedDict[tuple[str, int, int, str], Any] = OrderedDict()
+    demo_model_cache: OrderedDict[tuple[str, int, int, str], Any] = OrderedDict()
     device = os.environ.get("SKETCHLAB_DEVICE", "cpu")
+
+    def demo_device() -> str:
+        import torch
+
+        return os.environ.get("SKETCHLAB_DEMO_DEVICE") or ("cuda" if torch.cuda.is_available() else "cpu")
 
     @application.exception_handler(RequestValidationError)
     async def invalid_request(_request, exc):
@@ -112,9 +119,11 @@ def create_app(runs_dir: str | Path | None = None, backend: Any = None) -> FastA
 
     def resolve_checkpoint(model_id: str) -> Path:
         relative = Path(model_id)
-        checkpoint = (run_root / relative).resolve()
-        if relative.is_absolute() or not checkpoint.is_relative_to(run_root):
-            raise HTTPException(status_code=400, detail="El checkpoint debe estar dentro de runs/.")
+        packaged = relative.parts[:2] == ("artifacts", "models")
+        allowed_root = artifact_root if packaged else run_root
+        checkpoint = (allowed_root / Path(*relative.parts[2:]) if packaged else allowed_root / relative).resolve()
+        if relative.is_absolute() or not checkpoint.is_relative_to(allowed_root):
+            raise HTTPException(status_code=400, detail="El checkpoint debe estar dentro de runs/ o artifacts/models/.")
         if checkpoint.name not in {"checkpoint.pt", "best.pt", "last.pt"} or not checkpoint.is_file():
             raise HTTPException(status_code=404, detail="No se encontró el checkpoint. Actualiza la lista de modelos.")
         return checkpoint
@@ -122,18 +131,22 @@ def create_app(runs_dir: str | Path | None = None, backend: Any = None) -> FastA
     @application.get("/api/models")
     def models():
         available = []
-        if run_root.is_dir():
+        if run_root.is_dir() or artifact_root.is_dir():
             priority = {"best.pt": 0, "checkpoint.pt": 1, "last.pt": 2}
             by_directory = {}
-            for candidate in run_root.rglob("*.pt"):
-                if candidate.name not in priority:
+            for source in (run_root, artifact_root):
+                if not source.is_dir():
                     continue
-                old = by_directory.get(candidate.parent)
-                if old is None or priority[candidate.name] < priority[old.name]:
-                    by_directory[candidate.parent] = candidate
+                for candidate in source.rglob("*.pt"):
+                    if candidate.name not in priority:
+                        continue
+                    old = by_directory.get(candidate.parent)
+                    if old is None or priority[candidate.name] < priority[old.name]:
+                        by_directory[candidate.parent] = candidate
             for checkpoint in sorted(by_directory.values()):
                 resolved = checkpoint.resolve()
-                if not resolved.is_relative_to(run_root) or not resolved.is_file():
+                source = artifact_root if resolved.is_relative_to(artifact_root) else run_root
+                if not resolved.is_relative_to(source) or not resolved.is_file():
                     continue
                 # F representation pretraining does not yield a generative model.
                 if checkpoint.parent.name == "F":
@@ -143,28 +156,40 @@ def create_app(runs_dir: str | Path | None = None, backend: Any = None) -> FastA
                     except (ValueError, RuntimeError, KeyError, EOFError, OSError, pickle.UnpicklingError):
                         continue
                 info = resolved.stat()
-                model_id = checkpoint.relative_to(run_root).as_posix()
+                model_id = (("artifacts/models/" if source == artifact_root else "")
+                            + checkpoint.relative_to(source).as_posix())
                 available.append({
                     "id": model_id,
-                    "label": f"{checkpoint.parent.relative_to(run_root).as_posix()} · {checkpoint.name}",
+                    "label": f"{'Final / ' if source == artifact_root else ''}{checkpoint.parent.relative_to(source).as_posix()} · {checkpoint.name}",
                     "modified_at": datetime.fromtimestamp(info.st_mtime, timezone.utc).isoformat(),
                     "size_bytes": info.st_size,
                 })
-        return {"models": available, "canvas_size": 512, "device": device}
+        return {"models": available, "canvas_size": 512, "device": device,
+                "demo_device": demo_device()}
 
-    def infer(request: GenerateRequest, checkpoint: Path):
+    def infer(request: GenerateRequest, checkpoint: Path, demo: bool = False):
         # Sampling can use global Torch/NumPy RNG state. Serialize inference,
         # including checkpoint loading, to make seeded calls reproducible.
         with inference_lock:
-            generation = backend if backend is not None else importlib.import_module("sketchlab.generation")
+            packaged = checkpoint.is_relative_to(artifact_root)
+            relative_checkpoint = checkpoint.relative_to(artifact_root if packaged else run_root).as_posix()
+            generation = backend if backend is not None else importlib.import_module(
+                "app.h20_backend" if (packaged and relative_checkpoint in {"H13/best.pt", "H20/best.pt"}) or
+                relative_checkpoint == "H20_training/short/best.pt" or
+                (demo and relative_checkpoint == "H13_training/short/best.pt")
+                else "sketchlab.generation")
             info = checkpoint.stat()
-            key = (str(checkpoint), info.st_mtime_ns, info.st_size)
-            if key not in model_cache:
-                model_cache[key] = generation.load_model(checkpoint, device=device)
-                while len(model_cache) > 2:
-                    model_cache.popitem(last=False)
-            model_cache.move_to_end(key)
-            handle = model_cache[key]
+            inference_device = device
+            if demo:
+                inference_device = demo_device()
+            cache = demo_model_cache if demo else model_cache
+            key = (str(checkpoint), info.st_mtime_ns, info.st_size, inference_device)
+            if key not in cache:
+                cache[key] = generation.load_model(checkpoint, device=inference_device)
+                while len(cache) > (3 if demo else 2):
+                    cache.popitem(last=False)
+            cache.move_to_end(key)
+            handle = cache[key]
             kwargs = {
                 "n_candidates": request.n_candidates,
                 "top_k": request.top_k,
@@ -183,7 +208,16 @@ def create_app(runs_dir: str | Path | None = None, backend: Any = None) -> FastA
             samples = []
             expected_prefix = [[list(point) for point in stroke] for stroke in request.prefix]
             unrenderable = []
-            for candidate in result["selected"]:
+            selected = list(result["selected"])
+            if demo and len(selected) < request.top_k:
+                chosen_ids = {candidate.get("id") for candidate in selected}
+                for candidate in result.get("candidates", []):
+                    if candidate.get("id") not in chosen_ids:
+                        selected.append(candidate)
+                        chosen_ids.add(candidate.get("id"))
+                    if len(selected) >= request.top_k:
+                        break
+            for candidate in selected:
                 raw = candidate["raw_output"]
                 processed = candidate["postprocessed_output"]
                 try:
@@ -210,6 +244,8 @@ def create_app(runs_dir: str | Path | None = None, backend: Any = None) -> FastA
                 })
             report = _json_safe(result.get("report", {}))
             report["unrenderable_selected"] = unrenderable
+            if demo:
+                report["presentation_fallbacks"] = max(0, len(selected) - len(result["selected"]))
             return {
                 "samples": samples,
                 "selected": samples,
@@ -241,6 +277,27 @@ def create_app(runs_dir: str | Path | None = None, backend: Any = None) -> FastA
 
             logging.getLogger(__name__).exception("Sketch generation failed")
             raise HTTPException(status_code=500, detail="No se pudo generar. Revisa el checkpoint y el registro del servidor.") from exc
+
+    @application.post("/api/demo/generate")
+    async def demo_generate(request: GenerateRequest):
+        if request.model not in {
+            "artifacts/models/H9/best.pt", "artifacts/models/H13/best.pt", "artifacts/models/H20/best.pt",
+            "H_training/H9/short/H/best.pt", "H13_training/short/best.pt", "H20_training/short/best.pt"
+        }:
+            raise HTTPException(status_code=400, detail="Elige H9, H13 o H20.")
+        checkpoint = resolve_checkpoint(request.model)
+        try:
+            return await run_in_threadpool(infer, request, checkpoint, True)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).exception("Presentation demo generation failed")
+            raise HTTPException(status_code=500, detail="No se pudo generar esta variante. Prueba de nuevo.") from exc
+
+    @application.get("/demo")
+    def presentation_demo():
+        return FileResponse(ASSETS / "demo.html")
 
     @application.get("/")
     def index():

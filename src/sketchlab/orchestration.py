@@ -44,7 +44,7 @@ def sample_multiple(handle, prefix=None, n_candidates=20, top_k=6, seed=42,
     prefix = [s.copy() for s in validate_sketch(prefix if prefix is not None else [])]
     stats = None
     if validate:
-        path = Path(geometry_path or "data/processed/geometry.json")
+        path = Path(geometry_path) if geometry_path is not None else Path(__file__).resolve().parents[2] / "data/processed/geometry.json"
         if not path.exists():
             raise FileNotFoundError("TRAIN geometry statistics are missing; run python -m scripts.fit_geometry once")
         stats = load_geometry(path)

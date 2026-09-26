@@ -221,6 +221,8 @@
       if (!state.models.length) $("model").add(new Option("Sin checkpoints disponibles", ""));
       for (const model of state.models) $("model").add(new Option(model.label, model.id));
       if (state.models.some((model) => model.id === selected)) $("model").value = selected;
+      else if (state.models.some((model) => model.id === "artifacts/models/H20/best.pt")) $("model").value = "artifacts/models/H20/best.pt";
+      else if (state.models.some((model) => model.id === "H20_training/short/best.pt")) $("model").value = "H20_training/short/best.pt";
       $("no-models").hidden = state.models.length > 0;
       $("model-help").textContent = state.models.length ? `${state.models.length} checkpoint(s) disponible(s) · inferencia ${payload.device}` : "Variantes A–E disponibles en runs/.";
       redrawInput();

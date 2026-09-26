@@ -21,6 +21,7 @@ logs/
 tmp/
 
 *.pt
+!artifacts/models/*/best.pt
 *.zip
 *.log
 *.tmp

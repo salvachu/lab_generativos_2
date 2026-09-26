@@ -1,0 +1,9 @@
+{
+  "train_sha256": "bc2f939ab6ceb816375acdd536d126115c6cf1646ad339d14f6a533321bf39a7",
+  "raster_canvas": 512,
+  "source_bank": "H15_training",
+  "array_keys": [
+    "library_indices",
+    "library_full_compact"
+  ]
+}

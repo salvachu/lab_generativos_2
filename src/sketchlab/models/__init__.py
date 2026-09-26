@@ -1,4 +1,4 @@
-"""Factory for A-E and the compositional conditional VAE F."""
+"""Factory for A-E, compositional CVAE F, and semantic-plan CVAE G."""
 from __future__ import annotations
 
 import math
@@ -15,8 +15,8 @@ def create_model(config: dict | str) -> nn.Module:
         config = {"model": config}
     normalized = {**DEFAULT_CONFIG, **config}
     normalized["model"] = str(normalized["model"]).upper()
-    if normalized["model"] not in "ABCDEF" or len(normalized["model"]) != 1:
-        raise ValueError("model must be one of A, B, C, D, E, F")
+    if normalized["model"] not in "ABCDEFGH" or len(normalized["model"]) != 1:
+        raise ValueError("model must be one of A, B, C, D, E, F, G, H")
     for key in ("hidden_dim", "latent_dim", "mixtures", "stroke_latent_dim", "layers"):
         if not isinstance(normalized[key], int) or normalized[key] <= 0:
             raise ValueError(f"{key} must be a positive integer")
@@ -29,6 +29,12 @@ def create_model(config: dict | str) -> nn.Module:
     if normalized["model"] in "ABC":
         from .sequence import SequenceVAE
         return SequenceVAE(normalized)
+    if normalized["model"] == "G":
+        from .model_g import ModelG
+        return ModelG(normalized)
+    if normalized["model"] == "H":
+        from .model_h import ModelH
+        return ModelH(normalized)
     if normalized["model"] == "F":
         from .model_f import ModelF
         return ModelF(normalized)
