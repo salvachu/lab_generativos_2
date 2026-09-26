@@ -63,6 +63,7 @@ En PowerShell, con Git y Python instalados:
 ```powershell
 git clone https://github.com/salvachu/lab_generativos_2.git
 cd lab_generativos_2
+git switch --track origin/codex/model-f-compositional-vae
 powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\run_demo.ps1
 ```
@@ -76,6 +77,7 @@ sudo apt update
 sudo apt install -y git python3 python3-venv
 git clone https://github.com/salvachu/lab_generativos_2.git
 cd lab_generativos_2
+git switch --track origin/codex/model-f-compositional-vae
 bash scripts/setup.sh
 bash scripts/run_demo.sh
 ```
